@@ -992,7 +992,7 @@ function updateSummary(results, period){
           <span class="chart-bar-label">${fmt(r.d.tcoTotal)}</span>
         </div>
       </div>
-      ${isWinner?'<span style="font-size:0.68rem;color:#4ade80;font-weight:700;white-space:nowrap">✓ LOWEST</span>':''}
+      <span style="font-size:0.68rem;color:#4ade80;font-weight:700;white-space:nowrap;width:58px;flex-shrink:0;${isWinner?'':'visibility:hidden'}">✓ LOWEST</span>
     </div>`;
   }).join('');
 
