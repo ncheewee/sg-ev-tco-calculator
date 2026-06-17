@@ -181,8 +181,10 @@ input[type=number].rr{border-radius:0 8px 8px 0}
 .chart-car-name{font-size:0.75rem;font-weight:700;width:150px;flex-shrink:0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chart-bar-wrap{flex:1;height:26px}
-.chart-bar{height:100%;border-radius:6px;transition:width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);min-width:4px}
-.chart-bar-value{font-size:0.75rem;font-weight:700;color:var(--text);white-space:nowrap;width:78px;flex-shrink:0}
+.chart-bar{height:100%;border-radius:6px;transition:width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);
+  min-width:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:9px;box-sizing:border-box;overflow:hidden}
+.chart-bar-label{font-size:0.7rem;font-weight:700;color:#fff;white-space:nowrap}
+.chart-bar-variance{font-size:0.68rem;font-weight:700;white-space:nowrap;width:138px;flex-shrink:0;text-align:right}
 .breakdown-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));
   gap:12px;margin-top:20px;border-top:1px solid var(--border);padding-top:20px}
 .bc{background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
@@ -221,7 +223,9 @@ footer a{color:var(--accent);text-decoration:none}
   .tco-section{margin:12px 14px 0}
   .tco-header{padding:12px 16px}
   .chart-area{padding:14px 16px}
-  .chart-car-name{width:105px;font-size:0.69rem}
+  .chart-car-name{width:80px;font-size:0.65rem}
+  .chart-bar-variance{width:76px;font-size:0.56rem;white-space:normal;line-height:1.25}
+  .chart-bar-label{font-size:0.62rem}
   .breakdown-grid{grid-template-columns:1fr}
   .disclaimer{margin:12px 14px 16px;font-size:0.62rem}
   footer{font-size:0.64rem;padding:14px}
@@ -980,17 +984,31 @@ function updateSummary(results, period){
     set('tcoWinner','Add 2+ cars to compare');
   }
 
+  const lowestTco = results[minIdx].d.tcoTotal;
   document.getElementById('chartBars').innerHTML = results.map((r,i)=>{
     const pct = maxTco>0?(r.d.tcoTotal/maxTco)*100:0;
-    const isWinner = i===minIdx && results.length>1;
+    const isWinner = i===minIdx;
     const c = r.car.preset.color;
+    let varianceHtml = '';
+    if(results.length>1){
+      if(isWinner){
+        varianceHtml = `<span class="chart-bar-variance" style="color:#4ade80">Lowest</span>`;
+      } else {
+        const diffAmt = r.d.tcoTotal - lowestTco;
+        const diffPct = lowestTco>0 ? (diffAmt/lowestTco*100) : 0;
+        varianceHtml = `<span class="chart-bar-variance" style="color:#f59e0b">+${fmt(diffAmt)} (+${diffPct.toFixed(1)}%)</span>`;
+      }
+    } else {
+      varianceHtml = `<span class="chart-bar-variance"></span>`;
+    }
     return `<div class="chart-row">
       <div class="chart-car-name" style="color:${c}">${r.car.preset.name}</div>
       <div class="chart-bar-wrap">
-        <div class="chart-bar" style="width:${pct}%;background:linear-gradient(90deg,${c}cc,${c})"></div>
+        <div class="chart-bar" style="width:${pct}%;background:linear-gradient(90deg,${c}cc,${c})">
+          <span class="chart-bar-label">${fmt(r.d.tcoTotal)}</span>
+        </div>
       </div>
-      <span class="chart-bar-value">${fmt(r.d.tcoTotal)}</span>
-      <span style="font-size:0.68rem;color:#4ade80;font-weight:700;white-space:nowrap;width:58px;flex-shrink:0;${isWinner?'':'visibility:hidden'}">✓ LOWEST</span>
+      ${varianceHtml}
     </div>`;
   }).join('');
 
