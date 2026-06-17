@@ -180,10 +180,9 @@ input[type=number].rr{border-radius:0 8px 8px 0}
 .chart-row{display:flex;gap:8px;align-items:center}
 .chart-car-name{font-size:0.75rem;font-weight:700;width:150px;flex-shrink:0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chart-bar-wrap{flex:1;height:26px;background:rgba(255,255,255,0.05);border-radius:6px;overflow:hidden;position:relative}
+.chart-bar-wrap{flex:1;height:26px}
 .chart-bar{height:100%;border-radius:6px;transition:width 0.6s cubic-bezier(0.25,0.46,0.45,0.94);min-width:4px}
-.chart-bar-label{position:absolute;right:8px;top:50%;transform:translateY(-50%);
-  font-size:0.69rem;font-weight:700;color:rgba(255,255,255,0.9);white-space:nowrap}
+.chart-bar-value{font-size:0.75rem;font-weight:700;color:var(--text);white-space:nowrap;width:78px;flex-shrink:0}
 .breakdown-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));
   gap:12px;margin-top:20px;border-top:1px solid var(--border);padding-top:20px}
 .bc{background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
@@ -988,10 +987,9 @@ function updateSummary(results, period){
     return `<div class="chart-row">
       <div class="chart-car-name" style="color:${c}">${r.car.preset.name}</div>
       <div class="chart-bar-wrap">
-        <div class="chart-bar" style="width:${pct}%;background:linear-gradient(90deg,${c}cc,${c})">
-          <span class="chart-bar-label">${fmt(r.d.tcoTotal)}</span>
-        </div>
+        <div class="chart-bar" style="width:${pct}%;background:linear-gradient(90deg,${c}cc,${c})"></div>
       </div>
+      <span class="chart-bar-value">${fmt(r.d.tcoTotal)}</span>
       <span style="font-size:0.68rem;color:#4ade80;font-weight:700;white-space:nowrap;width:58px;flex-shrink:0;${isWinner?'':'visibility:hidden'}">✓ LOWEST</span>
     </div>`;
   }).join('');
