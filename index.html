@@ -65,6 +65,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
   background:linear-gradient(to bottom,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.65) 100%)}
 .car-hero-content{position:absolute;bottom:0;left:0;right:0;padding:12px 14px}
 .car-hero-name{font-size:0.98rem;font-weight:800;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,0.5);letter-spacing:-0.02em}
+.hero-name-input{background:transparent;border:none;border-bottom:1px dashed rgba(255,255,255,0.45);
+  color:#fff;font-size:0.98rem;font-weight:800;letter-spacing:-0.02em;text-shadow:0 1px 4px rgba(0,0,0,0.5);
+  width:100%;padding:0 0 2px;font-family:inherit}
+.hero-name-input:focus{outline:none;border-bottom-color:#fff}
+.hero-name-input::placeholder{color:rgba(255,255,255,0.55);font-weight:600}
 .car-hero-sub{font-size:0.67rem;opacity:0.82;color:#e2e8f0;margin-top:2px}
 .car-hero-stats{display:flex;gap:7px;margin-top:5px}
 .car-stat-chip{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);
@@ -548,7 +553,8 @@ function saveToStorage(){
           consumption: getVal(`c${c.id}_consumption`),
           omv:         getVal(`c${c.id}_omv`),
           coe:         getVal(`c${c.id}_coe`),
-          vesRebate:   getVal(`c${c.id}_vesRebate`)
+          vesRebate:   getVal(`c${c.id}_vesRebate`),
+          customName:  c.v.customName || ''
         }
       }))
     };
@@ -616,12 +622,17 @@ function _addCarRaw(preset, v){
   const id = ++carIdCounter;
   const vals = v ? {...v} : {...preset.defaults};
   if(!vals.loanAmt) vals.loanAmt = Math.round(vals.price * vals.loanPct / 100);
-  cars.push({id, preset, v:vals});
+  cars.push({id, preset, v:vals, color:preset.color});
   renderCar(id);
 }
 
 function addCar(preset){
-  _addCarRaw(preset);
+  let v;
+  if(preset.id==='custom'){
+    const n = cars.filter(c=>c.preset.id==='custom').length;
+    v = {...preset.defaults, customName: n===0 ? 'Custom Vehicle' : `Custom Vehicle ${n+1}`};
+  }
+  _addCarRaw(preset, v);
   updateAddButton();
   recalcAll();
   // scroll to new card
@@ -663,7 +674,9 @@ function renderCar(id){
       <div class="car-hero-fallback" id="fb${id}" ${p.image?'style="display:none"':''}>${p.emoji}</div>
       <div class="car-hero-overlay"></div>
       <div class="car-hero-content">
-        <div class="car-hero-name">${p.name}</div>
+        <div class="car-hero-name">${p.id==='custom'
+          ? `<input type="text" class="hero-name-input" id="c${id}_name" value="${escAttr(v.customName||p.name)}" placeholder="Name this car" maxlength="40" oninput="onNameChange(${id})">`
+          : p.name}</div>
         <div class="car-hero-sub">${p.sub}</div>
         <div class="car-hero-stats">
           ${p.stats.map(s=>`<div class="car-stat-chip">${s}</div>`).join('')}
@@ -881,6 +894,27 @@ function closeModal(){ document.getElementById('modal').style.display='none' }
 const getVal = id => { const el=document.getElementById(id); return el?parseFloat(el.value)||0:0 };
 const fmt = n => 'S$'+Math.round(n).toLocaleString('en-SG');
 const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v };
+const escAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const carName = car => car.preset.id==='custom' ? (car.v.customName||car.preset.name) : car.preset.name;
+
+// ─── DISTINCT COLOUR ASSIGNMENT (so graphs stay readable) ──────
+// Several presets share a brand colour (e.g. all Teslas are red). When two
+// or more *added* cars would clash, later-added cars fall back to the next
+// free colour in this palette so every line/bar in the charts stays distinct.
+const COLOR_PALETTE = [
+  '#3b82f6','#ef4444','#22c55e','#f59e0b','#a855f7','#06b6d4',
+  '#ec4899','#84cc16','#f97316','#6366f1','#14b8a6','#eab308',
+  '#fb7185','#0ea5e9','#c026d3','#65a30d','#f43f5e','#0891b2'
+];
+function assignColors(){
+  const used = new Set();
+  cars.forEach(car=>{
+    let color = car.preset.color;
+    if(used.has(color)) color = COLOR_PALETTE.find(c=>!used.has(c)) || car.preset.color;
+    used.add(color);
+    car.color = color;
+  });
+}
 
 function calcInstalment(principal, rate, years){
   if(!principal||!years) return 0;
@@ -961,9 +995,17 @@ function onLoanAmtChange(id){
   if(el&&price>0) el.value=(amt/price*100).toFixed(1);
   recalcAll();
 }
+function onNameChange(id){
+  const car = cars.find(c=>c.id===id);
+  if(!car) return;
+  const el = document.getElementById(`c${id}_name`);
+  car.v.customName = el ? el.value : '';
+  recalcAll();
+}
 
 // ─── RECALC ALL ───────────────────────────────────────────────
 function recalcAll(){
+  assignColors();
   const period = Math.min(getVal('tcoPeriod')||10, 10);
   set('tcoPeriodLabel', period);
 
@@ -1005,7 +1047,7 @@ function updateSummary(results, period){
   if(results.length>=2){
     const winner=results[minIdx];
     const diff=results.map(r=>r.d.tcoTotal).filter((_,i)=>i!==minIdx).map(t=>t-winner.d.tcoTotal).sort((a,b)=>a-b);
-    set('tcoWinner',`${winner.car.preset.name} saves ${fmt(diff[0])} vs next`);
+    set('tcoWinner',`${carName(winner.car)} saves ${fmt(diff[0])} vs next`);
   } else {
     set('tcoWinner','Add 2+ cars to compare');
   }
@@ -1014,7 +1056,7 @@ function updateSummary(results, period){
   document.getElementById('chartBars').innerHTML = results.map((r,i)=>{
     const pct = maxTco>0?(r.d.tcoTotal/maxTco)*100:0;
     const isWinner = i===minIdx;
-    const c = r.car.preset.color;
+    const c = r.car.color;
     let varianceHtml = '';
     if(results.length>1){
       if(isWinner){
@@ -1028,7 +1070,7 @@ function updateSummary(results, period){
       varianceHtml = `<span class="chart-bar-variance"></span>`;
     }
     return `<div class="chart-row">
-      <div class="chart-car-name" style="color:${c}">${r.car.preset.name}</div>
+      <div class="chart-car-name" style="color:${c}">${carName(r.car)}</div>
       <div class="chart-bar-wrap">
         <div class="chart-bar" style="width:${pct}%;background:linear-gradient(90deg,${c}cc,${c})">
           <span class="chart-bar-label">${fmt(r.d.tcoTotal)}</span>
@@ -1039,10 +1081,10 @@ function updateSummary(results, period){
   }).join('');
 
   document.getElementById('breakdownGrid').innerHTML = results.map(r=>{
-    const {d,car}=r; const c=car.preset.color;
+    const {d,car}=r; const c=car.color;
     return `<div class="bc">
       <div class="bc-title"><div class="bc-dot" style="background:${c}"></div>
-        <span style="color:${c}">${car.preset.name}</span>
+        <span style="color:${c}">${carName(car)}</span>
       </div>
       <div class="bc-row"><span>Vehicle (net trade-in)</span><span>${fmt(d.vehicleNet)}</span></div>
       <div class="bc-row"><span>Loan interest (${d.duration}yr flat)</span><span>${fmt(d.interest)}</span></div>
@@ -1070,8 +1112,8 @@ function updateSummary(results, period){
 
 function updateHeaderBadges(results){
   document.getElementById('headerBadges').innerHTML = results.map(r=>{
-    const c=r.car.preset.color;
-    return `<span class="hbadge" style="color:${c};border-color:${c}30;background:${c}15">${r.car.preset.name}</span>`;
+    const c=r.car.color;
+    return `<span class="hbadge" style="color:${c};border-color:${c}30;background:${c}15">${carName(r.car)}</span>`;
   }).join('')+`<span class="hbadge" style="color:var(--muted);border-color:var(--border)">Jun 2026</span>`;
 }
 
@@ -1084,7 +1126,7 @@ function buildSensitivitySeries(){
     for(let yr=1; yr<=10; yr++){
       values.push({year:yr, tco:calcCarData(car.id, yr).tcoTotal});
     }
-    return {id:car.id, name:car.preset.name, color:car.preset.color, values};
+    return {id:car.id, name:carName(car), color:car.color, values};
   });
 }
 
